@@ -1,0 +1,440 @@
+
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formula 1</title>
+
+    <style>
+        body {
+            background-color: #181818;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #ff3333;
+            font-size: 36px;
+        }
+
+        h2 {
+            color: #ff4444;
+            margin-top: 30px;
+        }
+
+        .info {
+            text-align: center;
+            font-size: 18px;
+            margin: 20px;
+        }
+
+        .buttons {
+            text-align: center;
+            margin: 25px;
+        }
+
+        button {
+            background-color: #e32636;
+            color: white;
+            border: none;
+            padding: 12px 22px;
+            margin: 5px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #ff5555;
+        }
+
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: #292929;
+        }
+
+        th, td {
+            border: 1px solid #555;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #b51f2e;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #353535;
+        }
+
+        .status {
+            color: #ffd166;
+            font-weight: bold;
+        }
+
+        .winner {
+            background-color: #247a35 !important;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .result {
+            text-align: center;
+            font-size: 25px;
+            color: #ffd700;
+            margin: 30px;
+        }
+
+        .legend {
+            text-align: center;
+            margin-top: 20px;
+            color: #ccc;
+        }
+
+        .history {
+            margin-bottom: 35px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>FORMULA 1</h1>
+
+    <div class="info">
+        <p>Круг: <span id="lap">0</span> / 10</p>
+        <p>Статус на трката: <span id="raceStatus">Подготвена за старт</span></p>
+    </div>
+
+    <div class="buttons">
+        <button onclick="nextLap()" id="nextButton">
+            Следен круг
+        </button>
+
+        <button onclick="startRace()">
+            Заврши ја трката
+        </button>
+
+        <button onclick="resetRace()">
+            Нова трка
+        </button>
+    </div>
+
+    <h2>Почетна табела - Старт</h2>
+
+    <div id="startTable"></div>
+
+    <h2>Тековна состојба</h2>
+
+    <div id="currentTable"></div>
+
+    <h2>Историја на кругови</h2>
+
+    <div id="history"></div>
+
+    <div id="winner" class="result"></div>
+
+    <div class="legend">
+        <p>Soft гуми | Hard гуми</p>
+        <p>Pit Stop | Spin | Safety Car</p>
+    </div>
+
+    <script>
+
+        const originalDrivers = [
+            { name: "Max Verstappen", team: "Red Bull", speed: 98, skill: 97 },
+            { name: "Lewis Hamilton", team: "Ferrari", speed: 96, skill: 98 },
+            { name: "Charles Leclerc", team: "Ferrari", speed: 97, skill: 95 },
+            { name: "Lando Norris", team: "McLaren", speed: 97, skill: 96 },
+            { name: "Oscar Piastri", team: "McLaren", speed: 95, skill: 94 },
+            { name: "George Russell", team: "Mercedes", speed: 95, skill: 94 },
+            { name: "Fernando Alonso", team: "Aston Martin", speed: 93, skill: 97 },
+            { name: "Carlos Sainz", team: "Williams", speed: 94, skill: 95 },
+            { name: "Sergio Perez", team: "Red Bull", speed: 94, skill: 92 },
+            { name: "Pierre Gasly", team: "Alpine", speed: 92, skill: 91 }
+        ];
+
+        let drivers = [];
+        let lap = 0;
+        let raceFinished = false;
+        let history = [];
+
+        function resetRace() {
+
+            drivers = originalDrivers.map(driver => ({
+                ...driver,
+                time: 0,
+                tire: "Soft",
+                pitStops: 0,
+                status: "Ready"
+            }));
+
+            lap = 0;
+            raceFinished = false;
+            history = [];
+
+            document.getElementById("lap").innerText = lap;
+            document.getElementById("raceStatus").innerText =
+                "Подготвена за старт";
+
+            document.getElementById("winner").innerHTML = "";
+            document.getElementById("history").innerHTML = "";
+
+            document.getElementById("nextButton").disabled = false;
+
+            showStartTable();
+            showCurrentTable();
+        }
+
+        function showStartTable() {
+
+            let html = `
+                <table>
+                    <tr>
+                        <th>Возач</th>
+                        <th>Тим</th>
+                        <th>Базична брзина</th>
+                        <th>Базична вештина</th>
+                        <th>Гуми</th>
+                    </tr>
+            `;
+
+            drivers.forEach(driver => {
+
+                html += `
+                    <tr>
+                        <td>${driver.name}</td>
+                        <td>${driver.team}</td>
+                        <td>${driver.speed}</td>
+                        <td>${driver.skill}</td>
+                        <td>Soft</td>
+                    </tr>
+                `;
+
+            });
+
+            html += "</table>";
+
+            document.getElementById("startTable").innerHTML = html;
+        }
+
+        function calculateTime(driver) {
+
+            let time = 100 - driver.speed * 0.1;
+
+            time -= driver.skill * 0.02;
+
+            if (driver.tire === "Soft") {
+                time -= 0.8;
+            } else {
+                time -= 0.3;
+            }
+
+            time += Math.random() * 0.8;
+
+            return time;
+        }
+
+        function nextLap() {
+
+            if (raceFinished || lap >= 10) {
+                return;
+            }
+
+            lap++;
+
+            let safetyCar = Math.random() < 0.15;
+
+            drivers.forEach(driver => {
+
+                driver.status = "Normal";
+
+                let lapTime = calculateTime(driver);
+
+                let mustPit = driver.pitStops === 0 && lap === 8;
+
+                let randomPit =
+                    driver.pitStops === 0 &&
+                    lap >= 3 &&
+                    lap <= 7 &&
+                    Math.random() < 0.20;
+
+                if (mustPit || randomPit) {
+
+                    driver.status = "PIT STOP";
+
+                    driver.pitStops++;
+
+                    if (driver.tire === "Soft") {
+                        driver.tire = "Hard";
+                    } else {
+                        driver.tire = "Soft";
+                    }
+
+                    lapTime += 20;
+                }
+
+                if (Math.random() < 0.06) {
+
+                    driver.status += " | SPIN";
+
+                    lapTime += 5 + Math.random() * 5;
+                }
+
+                if (safetyCar) {
+
+                    lapTime *= 1.12;
+
+                    if (driver.status === "Normal") {
+                        driver.status = "SAFETY CAR";
+                    } else {
+                        driver.status += " | SAFETY CAR";
+                    }
+                }
+
+                driver.time += lapTime;
+
+            });
+
+            drivers.sort((a, b) => a.time - b.time);
+
+            document.getElementById("lap").innerText = lap;
+
+            document.getElementById("raceStatus").innerText =
+                safetyCar ? "SAFETY CAR НА ПАТЕКАТА" : "Трката е во тек";
+
+            showCurrentTable();
+            showLapHistory(safetyCar);
+
+            if (lap === 10) {
+                finishRace();
+            }
+        }
+
+        function showCurrentTable() {
+
+            let html = `
+                <table>
+                    <tr>
+                        <th>Позиција</th>
+                        <th>Возач</th>
+                        <th>Тим</th>
+                        <th>Вкупно време</th>
+                        <th>Гуми</th>
+                        <th>Pit Stops</th>
+                        <th>Статус</th>
+                    </tr>
+            `;
+
+            drivers.forEach((driver, index) => {
+
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${driver.name}</td>
+                        <td>${driver.team}</td>
+                        <td>${driver.time.toFixed(2)} s</td>
+                        <td>${driver.tire}</td>
+                        <td>${driver.pitStops}</td>
+                        <td class="status">${driver.status}</td>
+                    </tr>
+                `;
+
+            });
+
+            html += "</table>";
+
+            document.getElementById("currentTable").innerHTML = html;
+        }
+
+        function showLapHistory(safetyCar) {
+
+            let html = `
+                <div class="history">
+                    <h3>Круг ${lap}</h3>
+                    <p>
+                        ${safetyCar ?
+                        "Излезе Safety Car!" :
+                        "Нема Safety Car во овој круг."}
+                    </p>
+
+                    <table>
+                        <tr>
+                            <th>Возач</th>
+                            <th>Вкупно време</th>
+                            <th>Гуми</th>
+                            <th>Статус</th>
+                        </tr>
+            `;
+
+            drivers.forEach(driver => {
+
+                html += `
+                    <tr>
+                        <td>${driver.name}</td>
+                        <td>${driver.time.toFixed(2)} s</td>
+                        <td>${driver.tire}</td>
+                        <td class="status">${driver.status}</td>
+                    </tr>
+                `;
+
+            });
+
+            html += "</table></div>";
+
+            history.push(html);
+
+            document.getElementById("history").innerHTML =
+                history.join("");
+        }
+
+        function finishRace() {
+
+            raceFinished = true;
+
+            drivers.sort((a, b) => a.time - b.time);
+
+            document.getElementById("raceStatus").innerText =
+                "Трката е завршена!";
+
+            document.getElementById("nextButton").disabled = true;
+
+            document.getElementById("winner").innerHTML = `
+                ПОБЕДНИК Е: ${drivers[0].name}
+                <br>
+                Тим: ${drivers[0].team}
+                <br>
+                Вкупно време: ${drivers[0].time.toFixed(2)} s
+            `;
+
+            showCurrentTable();
+
+            document.querySelector("#currentTable table tr:nth-child(2)")
+                .classList.add("winner");
+        }
+
+        function startRace() {
+
+            while (lap < 10 && !raceFinished) {
+                nextLap();
+            }
+
+        }
+
+        resetRace();
+
+    </script>
+
+</body>
+</html>
